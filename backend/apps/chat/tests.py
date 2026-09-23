@@ -120,3 +120,79 @@ class DashboardPermissionTests(APITestCase):
         body_str = str(r.json())
         self.assertNotIn("messages", body_str)
         self.assertNotIn("transcript", body_str)
+
+
+class CarPartDiagnosisTests(APITestCase):
+    """Verify car parts are not misdiagnosed as engine problems."""
+
+    def setUp(self):
+        self.customer = User.objects.create_user(
+            username="part_driver", email="part@test.com", password="Password@123", role=User.Role.CUSTOMER
+        )
+        r = self.client.post("/api/auth/login/", {"username": "part_driver", "password": "Password@123"})
+        self.token = r.json()["access"]
+        self.auth_header = {"HTTP_AUTHORIZATION": f"Bearer {self.token}"}
+
+    def test_suspension_part_not_misdiagnosed_as_engine(self):
+        # 1. User reports suspension noise over bumps
+        r = self.client.post(
+            "/api/chat/",
+            {"message": "My car suspension is making a clunking noise when going over bumps"},
+            **self.auth_header,
+        )
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        session_id = data["id"]
+        # Category must NOT be ENGINE_NOISE
+        self.assertNotEqual(data["category"], "ENGINE_NOISE")
+        self.assertEqual(data["category"], "OTHER")
+
+        # 2. Answer follow-up questions
+        while data["status"] == "COLLECTING":
+            q_key = data.get("pending_question", {}).get("key")
+            r = self.client.post(
+                "/api/chat/",
+                {"session_id": session_id, "message": "Clunking or knocking noise"},
+                **self.auth_header,
+            )
+            data = r.json()
+
+        self.assertEqual(data["status"], "READY")
+
+        # 3. Generate diagnosis
+        r = self.client.post("/api/diagnosis/", {"session_id": session_id}, **self.auth_header)
+        self.assertEqual(r.status_code, 201)
+        diag = r.json()
+
+        # Must diagnose Suspension, NOT Engine
+        self.assertIn("Suspension", diag["recommended_service"])
+        self.assertNotIn("Engine Diagnostic Inspection", diag["recommended_service"])
+        top_cause = diag["possible_causes"][0]["cause"]
+        self.assertNotIn("engine bearing", top_cause.lower())
+        self.assertIn("sway bar", top_cause.lower())
+
+    def test_gearbox_part_not_misdiagnosed_as_engine(self):
+        r = self.client.post(
+            "/api/chat/",
+            {"message": "My gearbox is grinding when shifting gears"},
+            **self.auth_header,
+        )
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        session_id = data["id"]
+        self.assertNotEqual(data["category"], "ENGINE_NOISE")
+
+        while data["status"] == "COLLECTING":
+            r = self.client.post(
+                "/api/chat/",
+                {"session_id": session_id, "message": "Grinding noise when shifting"},
+                **self.auth_header,
+            )
+            data = r.json()
+
+        r = self.client.post("/api/diagnosis/", {"session_id": session_id}, **self.auth_header)
+        self.assertEqual(r.status_code, 201)
+        diag = r.json()
+        self.assertIn("Transmission", diag["recommended_service"])
+        self.assertNotIn("Engine Diagnostic Inspection", diag["recommended_service"])
+

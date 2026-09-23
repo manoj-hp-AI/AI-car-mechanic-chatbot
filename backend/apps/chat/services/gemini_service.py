@@ -98,21 +98,21 @@ def analyze_media(file_path: str, media_type: str) -> str:
         return ""
 
 
-def suggest_dynamic_question(category: str, symptoms: dict, free_text: str) -> dict | None:
-    """Ask Gemini for ONE follow-up question for the free-form OTHER category."""
+def suggest_dynamic_question(category: str, symptoms: dict, free_text: str, component: str = "GENERAL") -> dict | None:
+    """Ask Gemini for ONE follow-up question for the user's reported car problem or part."""
     model = _get_model()
     if model is None:
         return None
     try:
         prompt = (
-            "A user reported this automotive problem: "
-            f"\"{free_text[:300]}\". Known details so far: {json.dumps(symptoms)[:300]}. "
-            "Suggest exactly ONE short diagnostic follow-up question a mechanic would ask "
-            "next, with up to 4 short multiple-choice options. "
+            f"A customer reported this automotive car part issue: \"{free_text[:300]}\" "
+            f"(Identified component: {component}). Known symptom answers: {json.dumps(symptoms)[:300]}. "
+            "You are an automotive mechanic assistant. Suggest exactly ONE concise diagnostic follow-up question "
+            "focusing specifically on this car part or problem, with up to 4 short multiple-choice options. "
             'Respond ONLY as JSON: {"question": "...", "options": ["...", "..."]}. '
             "No other text."
         )
-        response = model.generate_content(prompt)
+        response = model.generate_content(prompt, request_options={"timeout": 6})
         data = _safe_json(response.text)
         return data if isinstance(data, dict) else None
     except Exception:
@@ -120,22 +120,23 @@ def suggest_dynamic_question(category: str, symptoms: dict, free_text: str) -> d
         return None
 
 
-def suggest_extra_causes(category: str, symptoms: dict, free_text: str) -> list:
-    """Ask Gemini for extra candidate causes for the OTHER category's free-text description."""
+def suggest_extra_causes(category: str, symptoms: dict, free_text: str, component: str = "GENERAL") -> list:
+    """Ask Gemini for candidate causes for the specific car part or problem."""
     model = _get_model()
     if model is None:
         return []
     try:
         prompt = (
-            "A user reported this automotive problem: "
-            f"\"{free_text[:300]}\". Additional details: {json.dumps(symptoms)[:300]}. "
-            "List up to 3 likely causes a mechanic would consider, each with a confidence "
-            "0-100. Respond ONLY as JSON: "
-            '[{"cause": "...", "confidence": 0}]. No other text, no certainty above 90.'
+            f"A customer reported this automotive problem: \"{free_text[:300]}\" "
+            f"(Component: {component}). Symptom details: {json.dumps(symptoms)[:300]}. "
+            "List up to 3 likely root causes a certified mechanic would diagnose for this specific car part, "
+            "each with a realistic confidence percentage (0-90). "
+            'Respond ONLY as JSON: [{"cause": "...", "confidence": 70}]. No other text.'
         )
-        response = model.generate_content(prompt)
+        response = model.generate_content(prompt, request_options={"timeout": 6})
         data = _safe_json(response.text)
         return data if isinstance(data, list) else []
     except Exception:
         logger.exception("Gemini suggest_extra_causes call failed.")
         return []
+

@@ -183,9 +183,9 @@ def validate_gemini_causes(raw_causes) -> list:
     return clean
 
 
-def finalize_diagnosis(category, causes: list, severity: str):
+def finalize_diagnosis(category, causes: list, severity: str, service_override: str = None):
     """Sort causes, compute overall confidence, and pick the recommended service label."""
     causes = sorted(causes, key=lambda c: c["confidence"], reverse=True)[:5]
     overall_confidence = causes[0]["confidence"] if causes else 30
-    service = SERVICE_LABELS.get(category, SERVICE_LABELS[Category.OTHER])
+    service = service_override or SERVICE_LABELS.get(category, SERVICE_LABELS[Category.OTHER])
     return causes, overall_confidence, service

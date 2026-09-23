@@ -176,8 +176,8 @@ CORS_ALLOWED_ORIGINS = [
 # ---------------------------------------------------------------------------
 # Gemini (used sparingly - see apps/chat/services/gemini_service.py)
 # ---------------------------------------------------------------------------
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-1.5-flash")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip().strip("'\"")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.6-flash").strip().strip("'\"")
 GEMINI_ENABLED = bool(GEMINI_API_KEY)
 
 # ---------------------------------------------------------------------------

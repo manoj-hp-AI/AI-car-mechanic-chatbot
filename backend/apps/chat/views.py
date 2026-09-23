@@ -17,7 +17,7 @@ from .serializers import (
     DiagnosisSerializer,
     UploadedMediaSerializer,
 )
-from .services import diagnosis_engine, gemini_service, question_bank, question_guard, scope_guard
+from .services import diagnosis_engine, gemini_service, part_analyzer, question_bank, question_guard, scope_guard
 
 STARTER_CATEGORIES = {c for c in ChatSession.Category.values if c != ChatSession.Category.OTHER}
 
@@ -35,25 +35,44 @@ def _bot_message(session, text, message_type=Message.MessageType.SYSTEM):
 
 def _ask_next_question(session: ChatSession, state: DiagnosticState):
     """
-    Determine the next follow-up question for the session, preferring the
-    deterministic backend question bank; only falls back to a single guarded
-    Gemini call for the free-form OTHER category. Returns (question_dict|None).
+    Determine the next follow-up question for the session.
+    For car parts or free-form issues, uses Gemini AI when available, supported by
+    part-specific diagnostic questions so specific parts are never misdiagnosed as engine.
     """
     category = session.category
+    component = part_analyzer.detect_component(state.initial_free_text)
 
+    # If category is OTHER or if a specific car part was described:
+    if category == ChatSession.Category.OTHER or (component != "GENERAL" and component != "ENGINE"):
+        # 1. Ask Gemini AI for dynamic follow-up questions tailored to this car part
+        if settings.GEMINI_ENABLED and state.dynamic_question_count < 3:
+            raw = gemini_service.suggest_dynamic_question(
+                category, state.symptoms, state.initial_free_text, component=component
+            )
+            validated = question_guard.validate_dynamic_question(raw) if raw else None
+            if validated and validated["key"] not in state.asked_question_keys:
+                return validated
+
+        # 2. Check dedicated component questions for this specific car part
+        comp_questions = part_analyzer.get_component_questions(component)
+        if comp_questions:
+            for q in comp_questions:
+                if q["key"] not in state.asked_question_keys:
+                    return q
+            # Once all targeted component questions are answered, triage is complete
+            return None
+
+        # 3. Fallback generic questions only if no component questions exist
+        for q in question_bank.GENERIC_FALLBACK_QUESTIONS:
+            if q["key"] not in state.asked_question_keys:
+                return q
+
+        return None
+
+    # Standard starter categories (WONT_START, OVERHEATING, BRAKE_PROBLEM, AC_NOT_COOLING, ENGINE_NOISE)
     if category in question_bank.QUESTION_BANK:
         q = question_bank.get_next_question(category, state.asked_question_keys)
-        return q
-
-    # OTHER category: try a guarded dynamic question first, then generic fallback.
-    if state.dynamic_question_count < question_bank.MAX_DYNAMIC_QUESTIONS:
-        raw = gemini_service.suggest_dynamic_question(category, state.symptoms, state.initial_free_text)
-        validated = question_guard.validate_dynamic_question(raw) if raw else None
-        if validated and validated["key"] not in state.asked_question_keys:
-            return validated
-
-    for q in question_bank.GENERIC_FALLBACK_QUESTIONS:
-        if q["key"] not in state.asked_question_keys:
+        if q:
             return q
 
     return None
@@ -111,7 +130,12 @@ class ChatView(APIView):
                 session.status = ChatSession.Status.COLLECTING
                 session.save(update_fields=["category", "status"])
                 state = DiagnosticState.objects.create(session=session, initial_free_text=message_text)
-                _bot_message(session, "Thanks - that sounds like an automotive issue. Let me ask a few follow-up questions.")
+                component = part_analyzer.detect_component(message_text)
+                if component != "GENERAL":
+                    comp_name = component.replace('_', ' ').title()
+                    _bot_message(session, f"Got it - I see you are reporting an issue with your vehicle's {comp_name}. Let me ask a few quick diagnostic questions.")
+                else:
+                    _bot_message(session, "Thanks - that sounds like an automotive issue. Let me ask a few follow-up questions.")
 
         # --- Step 2: record the answer to whatever question was pending ---
         state, _ = DiagnosticState.objects.get_or_create(session=session)
@@ -236,17 +260,33 @@ class DiagnosisView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        causes, severity = diagnosis_engine.generate_rule_based_diagnosis(session.category, state.symptoms)
-        source = Diagnosis.Source.RULE_ENGINE
+        component = part_analyzer.detect_component(state.initial_free_text)
+        service_override = None
 
-        if session.category == ChatSession.Category.OTHER and settings.GEMINI_ENABLED:
-            raw_extra = gemini_service.suggest_extra_causes(session.category, state.symptoms, state.initial_free_text)
-            extra = diagnosis_engine.validate_gemini_causes(raw_extra)
-            if extra:
-                causes = causes + extra
-                source = Diagnosis.Source.GEMINI_ASSISTED
+        if session.category == ChatSession.Category.OTHER or (component != "GENERAL" and component != "ENGINE"):
+            comp_causes, comp_severity, comp_service = part_analyzer.get_component_diagnosis(
+                component, state.symptoms, state.initial_free_text
+            )
+            causes = comp_causes
+            severity = comp_severity
+            service_override = comp_service
+            source = Diagnosis.Source.RULE_ENGINE
 
-        causes, overall_confidence, service = diagnosis_engine.finalize_diagnosis(session.category, causes, severity)
+            if settings.GEMINI_ENABLED:
+                raw_extra = gemini_service.suggest_extra_causes(
+                    session.category, state.symptoms, state.initial_free_text, component=component
+                )
+                extra = diagnosis_engine.validate_gemini_causes(raw_extra)
+                if extra:
+                    causes = extra + causes
+                    source = Diagnosis.Source.GEMINI_ASSISTED
+        else:
+            causes, severity = diagnosis_engine.generate_rule_based_diagnosis(session.category, state.symptoms)
+            source = Diagnosis.Source.RULE_ENGINE
+
+        causes, overall_confidence, service = diagnosis_engine.finalize_diagnosis(
+            session.category, causes, severity, service_override=service_override
+        )
 
         diagnosis = Diagnosis.objects.create(
             session=session,

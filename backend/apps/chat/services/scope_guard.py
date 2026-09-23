@@ -21,8 +21,10 @@ CATEGORY_KEYWORDS = {
         "ignition", "no start", "car dies", "won't crank",
     ],
     ChatSession.Category.ENGINE_NOISE: [
-        "noise", "knocking", "rattling", "grinding", "squealing", "ticking",
-        "clunk", "whining", "engine sound", "loud engine", "vibration",
+        "engine noise", "engine sound", "loud engine", "engine knocking", "engine rattle",
+        "engine rattling", "engine ticking", "engine vibration", "engine clunk",
+        "engine whining", "engine grinding", "noise from engine", "noise under hood",
+        "motor noise", "valvetrain", "valve tick", "piston slap", "noisy engine",
     ],
     ChatSession.Category.OVERHEATING: [
         "overheat", "overheating", "temperature gauge", "steam", "coolant",
@@ -38,13 +40,25 @@ CATEGORY_KEYWORDS = {
     ],
 }
 
+# Non-engine components that must never be hijacked into ENGINE_NOISE
+NON_ENGINE_PARTS = [
+    "gearbox", "transmission", "clutch", "suspension", "strut", "shock",
+    "exhaust", "muffler", "steering", "alternator", "turbo", "axle",
+    "differential", "wheel bearing", "catalytic", "fuel pump", "drivetrain",
+    "tie rod", "ball joint", "control arm", "bushing", "sway bar",
+]
+
 # Broad list used only to decide "is this automotive at all" for free-form text
 # that doesn't match a specific category above.
 GENERIC_AUTOMOTIVE_KEYWORDS = [
     "car", "vehicle", "engine", "transmission", "tyre", "tire", "battery",
-    "oil", "exhaust", "clutch", "gear", "suspension", "steering", "dashboard",
+    "oil", "exhaust", "clutch", "gear", "gearbox", "suspension", "steering", "dashboard",
     "fuel", "diesel", "petrol", "spark plug", "alternator", "wheel", "mechanic",
     "auto", "motor", "bike", "truck", "van", "headlight", "wiper", "check engine",
+    "strut", "shock", "bushing", "axle", "differential", "muffler", "catalytic",
+    "radiator", "coolant", "turbo", "drivetrain", "brake", "brakes", "caliper",
+    "rotor", "pedal", "shifting", "pothole", "clunk", "rattle", "grind", "whine",
+    "squeal", "symptom", "leak", "smoke", "overheat", "starting", "rattling",
 ]
 
 STARTER_LABELS = {
@@ -59,10 +73,15 @@ STARTER_LABELS = {
 def match_category(text: str):
     """Return a Category value if the text clearly matches a known bucket, else None."""
     lowered = text.lower()
+    has_specific_non_engine_part = any(p in lowered for p in NON_ENGINE_PARTS)
+
     scores = {}
     for category, keywords in CATEGORY_KEYWORDS.items():
         score = sum(1 for kw in keywords if kw in lowered)
         if score:
+            # Never categorize a non-engine car part as ENGINE_NOISE
+            if category == ChatSession.Category.ENGINE_NOISE and has_specific_non_engine_part:
+                continue
             scores[category] = score
     if not scores:
         return None

@@ -10,7 +10,7 @@ text and must pass every check below before it is stored or shown to a user.
 """
 import re
 
-MAX_QUESTION_LENGTH = 140
+MAX_QUESTION_LENGTH = 200
 BANNED_SUBSTRINGS = [
     "book", "booking", "payment", "price", "cost", "credit card", "confirm order",
     "delete", "database", "admin", "password", "ignore previous", "system prompt",
@@ -18,7 +18,15 @@ BANNED_SUBSTRINGS = [
 AUTOMOTIVE_HINTS = [
     "car", "vehicle", "engine", "brake", "noise", "sound", "coolant", "battery",
     "ac", "air condition", "tyre", "tire", "oil", "light", "dashboard", "smell",
-    "leak", "start", "temperature", "pedal", "steering",
+    "leak", "start", "temperature", "pedal", "steering", "gear", "gearbox",
+    "transmission", "clutch", "suspension", "strut", "shock", "exhaust", "muffler",
+    "alternator", "starter", "radiator", "turbo", "axle", "differential", "wheel",
+    "bearing", "bushing", "rotor", "caliper", "catalytic", "sensor", "fuse",
+    "relay", "belt", "pulley", "spark", "plug", "fuel", "pump", "injector",
+    "filter", "drivetrain", "chassis", "rack", "pinion", "ball joint", "tie rod",
+    "control arm", "fluid", "drive", "speed", "vibrat", "hum", "whistle", "smoke",
+    "hiss", "shudder", "shift", "turn", "bump", "clunk", "rattle", "grind", "knock",
+    "clicking", "stall", "slip", "accel", "idle", "hood", "exhaust", "symptom",
 ]
 
 
