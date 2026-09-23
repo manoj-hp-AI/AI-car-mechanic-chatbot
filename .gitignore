@@ -1,0 +1,27 @@
+# Python & Django
+*.py[cod]
+__pycache__/
+*.sqlite3
+backend/.env
+backend/.venv/
+backend/venv/
+backend/staticfiles/
+backend/media/
+
+# Node & Next.js
+frontend/.env.local
+frontend/.env.*.local
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+
+# Scratch & Logs
+scratch/
+*.log
+
+# IDE & OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+

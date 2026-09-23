@@ -1,0 +1,122 @@
+from django.contrib.auth import get_user_model
+from rest_framework.test import APITestCase
+
+from apps.chat.models import ChatSession
+from apps.chat.services import scope_guard
+
+User = get_user_model()
+
+
+class ScopeGuardTests(APITestCase):
+    """Pure unit tests for the backend-only scope guard (no API calls)."""
+
+    def test_known_category_detected(self):
+        in_scope, category, needs_ai = scope_guard.classify("My car won't start, just clicking")
+        self.assertTrue(in_scope)
+        self.assertEqual(category, ChatSession.Category.WONT_START)
+        self.assertFalse(needs_ai)
+
+    def test_generic_automotive_falls_back_to_other(self):
+        in_scope, category, needs_ai = scope_guard.classify(
+            "My steering wheel vibrates a lot when I drive on the highway"
+        )
+        self.assertTrue(in_scope)
+        self.assertEqual(category, ChatSession.Category.OTHER)
+
+    def test_confidently_out_of_scope_text_rejected_without_ai(self):
+        in_scope, category, needs_ai = scope_guard.classify(
+            "What is a good recipe for chocolate chip cookies this weekend?"
+        )
+        self.assertFalse(in_scope)
+        self.assertFalse(needs_ai)
+
+    def test_short_ambiguous_text_flagged_for_ai_check(self):
+        in_scope, category, needs_ai = scope_guard.classify("please help me")
+        self.assertFalse(in_scope)
+        self.assertTrue(needs_ai)
+
+
+class ChatPipelineTests(APITestCase):
+    def setUp(self):
+        self.customer = User(username="cust", email="c@example.com", role=User.Role.CUSTOMER)
+        self.customer.set_password("StrongPass123")
+        self.customer.save()
+        r = self.client.post("/api/auth/login/", {"username": "cust", "password": "StrongPass123"})
+        token = r.json()["access"]
+        self.auth_header = {"HTTP_AUTHORIZATION": f"Bearer {token}"}
+
+    def test_full_starter_flow_reaches_diagnosis_and_booking(self):
+        r = self.client.post("/api/chat/", {"starter_category": "BRAKE_PROBLEM"}, **self.auth_header)
+        self.assertEqual(r.status_code, 200)
+        session_id = r.json()["id"]
+
+        for answer in ["Grinding noise", "ABS light", "Over a year ago"]:
+            r = self.client.post("/api/chat/", {"session_id": session_id, "message": answer}, **self.auth_header)
+        self.assertEqual(r.json()["status"], "READY")
+
+        r = self.client.post("/api/diagnosis/", {"session_id": session_id}, **self.auth_header)
+        self.assertEqual(r.status_code, 201)
+        self.assertIn("recommended_service", r.json())
+        self.assertGreater(len(r.json()["possible_causes"]), 0)
+        diagnosis_id = r.json()["id"]
+
+        r = self.client.post(
+            "/api/booking/", {"session_id": session_id, "diagnosis_id": diagnosis_id}, **self.auth_header
+        )
+        self.assertEqual(r.status_code, 201)
+        booking_id = r.json()["id"]
+
+        r = self.client.get(f"/api/booking/{booking_id}/", **self.auth_header)
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["status"], "PENDING")
+
+    def test_out_of_scope_message_is_rejected_politely(self):
+        r = self.client.post(
+            "/api/chat/", {"message": "What's the weather like in Paris this weekend?"}, **self.auth_header
+        )
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["status"], "REJECTED")
+
+    def test_diagnosis_blocked_before_questions_answered(self):
+        r = self.client.post("/api/chat/", {"starter_category": "OVERHEATING"}, **self.auth_header)
+        session_id = r.json()["id"]
+        r = self.client.post("/api/diagnosis/", {"session_id": session_id}, **self.auth_header)
+        self.assertEqual(r.status_code, 400)
+
+    def test_customer_cannot_access_another_customers_session(self):
+        r = self.client.post("/api/chat/", {"starter_category": "AC_NOT_COOLING"}, **self.auth_header)
+        session_id = r.json()["id"]
+
+        other = User(username="other", email="o@example.com", role=User.Role.CUSTOMER)
+        other.set_password("StrongPass123")
+        other.save()
+        r = self.client.post("/api/auth/login/", {"username": "other", "password": "StrongPass123"})
+        other_auth = {"HTTP_AUTHORIZATION": f"Bearer {r.json()['access']}"}
+
+        r = self.client.get(f"/api/chat/{session_id}/", **other_auth)
+        self.assertEqual(r.status_code, 404)
+
+
+class DashboardPermissionTests(APITestCase):
+    def test_dashboard_requires_admin_role(self):
+        customer = User(username="cust2", email="c2@example.com", role=User.Role.CUSTOMER)
+        customer.set_password("StrongPass123")
+        customer.save()
+        r = self.client.post("/api/auth/login/", {"username": "cust2", "password": "StrongPass123"})
+        auth = {"HTTP_AUTHORIZATION": f"Bearer {r.json()['access']}"}
+
+        r = self.client.get("/api/admin/dashboard/", **auth)
+        self.assertEqual(r.status_code, 403)
+
+    def test_dashboard_never_exposes_message_text_field(self):
+        admin = User(username="adm2", email="a2@example.com", role=User.Role.ADMIN, is_staff=True)
+        admin.set_password("StrongPass123")
+        admin.save()
+        r = self.client.post("/api/auth/admin/login/", {"username": "adm2", "password": "StrongPass123"})
+        auth = {"HTTP_AUTHORIZATION": f"Bearer {r.json()['access']}"}
+
+        r = self.client.get("/api/admin/dashboard/", **auth)
+        self.assertEqual(r.status_code, 200)
+        body_str = str(r.json())
+        self.assertNotIn("messages", body_str)
+        self.assertNotIn("transcript", body_str)
