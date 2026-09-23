@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { Navbar } from '@/components/layout/Navbar';
 import { AuthModal } from '@/components/auth/AuthModal';
 import { BookMechanicModal } from '@/components/booking/BookMechanicModal';
@@ -22,9 +23,13 @@ import {
   ArrowRight,
   ShieldCheck,
   Zap,
+  Sparkles,
 } from 'lucide-react';
 
-export default function DiagnosisPage() {
+function DiagnosisContent() {
+  const searchParams = useSearchParams();
+  const sessionId = searchParams.get('session_id');
+
   const { user, role, openAuthModal } = useAuth();
   const [diagnoses, setDiagnoses] = useState<Diagnosis[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,9 +44,42 @@ export default function DiagnosisPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await api.getMyDiagnoses();
-      setDiagnoses(data);
+      let data = await api.getMyDiagnoses();
+      let updatedList = [...data];
+
+      // If redirected with a specific session_id, ensure its diagnosis is fetched and prioritized at top
+      if (sessionId) {
+        const found = updatedList.find(
+          (d) => String(d.session) === String(sessionId) || String(d.id) === String(sessionId)
+        );
+        if (!found) {
+          try {
+            const directDiag = await api.getDiagnosis(sessionId);
+            if (directDiag) {
+              updatedList = [directDiag, ...updatedList.filter((d) => d.id !== directDiag.id)];
+            }
+          } catch (e) {
+            // Ignore if not yet generated or already fetched
+          }
+        } else {
+          // Move to the top so user immediately sees this session's diagnosis
+          updatedList = [found, ...updatedList.filter((d) => d.id !== found.id)];
+        }
+      }
+
+      setDiagnoses(updatedList);
     } catch (err: any) {
+      if (sessionId) {
+        try {
+          const directDiag = await api.getDiagnosis(sessionId);
+          if (directDiag) {
+            setDiagnoses([directDiag]);
+            setLoading(false);
+            return;
+          }
+        } catch (e) {}
+      }
+
       if (err instanceof ApiError && err.status === 401) {
         setError('Please log in to view your saved diagnostic reports.');
       } else {
@@ -53,12 +91,8 @@ export default function DiagnosisPage() {
   };
 
   useEffect(() => {
-    if (user) {
-      fetchDiagnoses();
-    } else {
-      setLoading(false);
-    }
-  }, [user]);
+    fetchDiagnoses();
+  }, [user, sessionId]);
 
   const handleBook = (diag: Diagnosis) => {
     setSelectedDiagnosis(diag);
@@ -292,24 +326,77 @@ export default function DiagnosisPage() {
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            {diagnoses.map((diag, idx) => (
-              <div key={diag.id || idx}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', padding: '0 4px' }}>
-                  <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                    Report #{diag.id} • Category: <strong style={{ color: '#FFFFFF' }}>{diag.category}</strong>
-                  </div>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                    {diag.created_at ? new Date(diag.created_at).toLocaleString('en-IN') : 'Recent'}
-                  </div>
-                </div>
+            {diagnoses.map((diag, idx) => {
+              const isTargetSession = Boolean(
+                sessionId &&
+                  (String(diag.session) === String(sessionId) ||
+                    String(diag.id) === String(sessionId) ||
+                    idx === 0)
+              );
 
-                <DiagnosisCard
-                  diagnosis={diag}
-                  onBookMechanic={() => handleBook(diag)}
-                  onRequestCall={() => handleCall(diag)}
-                />
-              </div>
-            ))}
+              return (
+                <div
+                  key={diag.id || idx}
+                  style={
+                    isTargetSession
+                      ? {
+                          borderRadius: 'var(--radius-xl)',
+                          padding: '16px',
+                          background: 'rgba(56, 189, 248, 0.05)',
+                          border: '1px solid rgba(56, 189, 248, 0.35)',
+                          boxShadow: '0 0 28px rgba(56, 189, 248, 0.15)',
+                        }
+                      : {}
+                  }
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      marginBottom: '10px',
+                      padding: '0 4px',
+                      flexWrap: 'wrap',
+                      gap: '8px',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                        Report #{diag.id} • Category: <strong style={{ color: '#FFFFFF' }}>{diag.category}</strong>
+                      </span>
+                      {isTargetSession && (
+                        <span
+                          style={{
+                            fontSize: '0.72rem',
+                            fontWeight: 700,
+                            padding: '2px 8px',
+                            borderRadius: 'var(--radius-full)',
+                            background: 'rgba(56, 189, 248, 0.2)',
+                            color: '#38BDF8',
+                            border: '1px solid rgba(56, 189, 248, 0.4)',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                          }}
+                        >
+                          <Sparkles size={11} />
+                          <span>Active Chat Diagnostic Report</span>
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                      {diag.created_at ? new Date(diag.created_at).toLocaleString('en-IN') : 'Recent'}
+                    </div>
+                  </div>
+
+                  <DiagnosisCard
+                    diagnosis={diag}
+                    onBookMechanic={() => handleBook(diag)}
+                    onRequestCall={() => handleCall(diag)}
+                  />
+                </div>
+              );
+            })}
           </div>
         )}
       </main>
@@ -330,5 +417,28 @@ export default function DiagnosisPage() {
         sessionId={selectedSessionId}
       />
     </div>
+  );
+}
+
+export default function DiagnosisPage() {
+  return (
+    <Suspense
+      fallback={
+        <div
+          style={{
+            minHeight: '100vh',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'var(--text-muted)',
+            background: 'var(--bg-primary)',
+          }}
+        >
+          Loading Vehicle Diagnostics Center...
+        </div>
+      }
+    >
+      <DiagnosisContent />
+    </Suspense>
   );
 }

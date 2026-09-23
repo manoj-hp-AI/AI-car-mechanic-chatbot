@@ -9,7 +9,6 @@ import {
   Message,
   StarterCategory,
 } from '@/lib/types';
-import { DiagnosisCard } from './DiagnosisCard';
 import {
   Wrench,
   Send,
@@ -35,8 +34,10 @@ import {
   Phone,
   CalendarDays,
   Zap,
+  ArrowRight,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 interface ChatInterfaceProps {
   onBookMechanic: (diagnosis: Diagnosis, sessionId: string) => void;
@@ -85,6 +86,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   onBookMechanic,
   onRequestCall,
 }) => {
+  const router = useRouter();
   const { user, openAuthModal } = useAuth();
 
   const [currentSession, setCurrentSession] = useState<ChatSession | null>(null);
@@ -231,6 +233,22 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
+    }
+  };
+
+  // Trigger Diagnosis and redirect to diagnosis page
+  const handleGetDiagnosisAndRedirect = async () => {
+    if (!currentSession) return;
+    setDiagnosing(true);
+    setErrorBanner(null);
+
+    try {
+      await api.getDiagnosis(currentSession.id);
+      router.push(`/diagnosis?session_id=${currentSession.id}`);
+    } catch (err: any) {
+      router.push(`/diagnosis?session_id=${currentSession.id}`);
+    } finally {
+      setDiagnosing(false);
     }
   };
 
@@ -734,54 +752,152 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
             </div>
           )}
 
-          {/* Ready for Diagnosis CTA banner */}
+          {/* Ready for Diagnosis CTA - Redirect to Diagnosis Page */}
           {currentSession?.status === 'READY' && !currentSession.diagnosis && (
             <div
               style={{
                 alignSelf: 'center',
-                maxWidth: '640px',
+                maxWidth: '680px',
                 width: '100%',
-                background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.15) 0%, rgba(16, 185, 129, 0.15) 100%)',
-                border: '1px solid rgba(56, 189, 248, 0.4)',
+                background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.16) 0%, rgba(16, 185, 129, 0.16) 100%)',
+                border: '1px solid rgba(56, 189, 248, 0.45)',
                 borderRadius: 'var(--radius-lg)',
-                padding: '20px',
-                textAlign: 'center',
+                padding: '22px 24px',
                 boxShadow: 'var(--shadow-glow)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '16px',
               }}
             >
-              <CheckCircle size={28} color="#10B981" style={{ margin: '0 auto 8px' }} />
-              <h3 style={{ fontSize: '1.15rem', color: '#FFFFFF', marginBottom: '6px' }}>
-                All Diagnostic Information Collected
-              </h3>
-              <p
-                style={{
-                  fontSize: '0.85rem',
-                  color: 'var(--text-secondary)',
-                  marginBottom: '16px',
-                }}
-              >
-                Our precision rule engine is ready to synthesize your answers, possible causes,
-                severity level, and repair recommendation.
-              </p>
+              <div style={{ flex: 1, minWidth: '240px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#10B981', fontWeight: 700, fontSize: '1rem', marginBottom: '4px' }}>
+                  <CheckCircle size={20} />
+                  <span>All Diagnostic Information Collected</span>
+                </div>
+                <p style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', margin: 0 }}>
+                  Ready to review your complete vehicle diagnostic report, root cause breakdown, and repair recommendations on the Diagnosis page.
+                </p>
+              </div>
+
               <button
-                onClick={handleGetDiagnosis}
+                onClick={handleGetDiagnosisAndRedirect}
                 disabled={diagnosing}
                 className="btn-success"
-                style={{ padding: '12px 28px', fontSize: '1rem', margin: '0 auto' }}
+                style={{
+                  padding: '12px 24px',
+                  fontSize: '0.92rem',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  fontWeight: 700,
+                  whiteSpace: 'nowrap',
+                }}
               >
-                <Sparkles size={18} />
-                <span>{diagnosing ? 'Calculating Diagnosis...' : 'Get Full Diagnosis Report'}</span>
+                <Sparkles size={16} />
+                <span>{diagnosing ? 'Calculating...' : 'View Diagnosis & Issues'}</span>
+                <ArrowRight size={18} />
               </button>
             </div>
           )}
 
-          {/* Structured Diagnosis Card Renderer */}
+          {/* Diagnosis Ready Redirect Banner with Arrow Mark */}
           {currentSession?.diagnosis && (
-            <DiagnosisCard
-              diagnosis={currentSession.diagnosis}
-              onBookMechanic={(d) => onBookMechanic(d, currentSession.id)}
-              onRequestCall={(d) => onRequestCall(d, currentSession.id)}
-            />
+            <div
+              style={{
+                alignSelf: 'center',
+                maxWidth: '680px',
+                width: '100%',
+                marginTop: '12px',
+                marginBottom: '12px',
+                padding: '20px 24px',
+                background: 'linear-gradient(135deg, rgba(14, 165, 233, 0.14) 0%, rgba(99, 102, 241, 0.1) 100%)',
+                border: '1px solid rgba(56, 189, 248, 0.4)',
+                borderRadius: 'var(--radius-lg)',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4), 0 0 24px rgba(56, 189, 248, 0.15)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '16px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1, minWidth: '240px' }}>
+                <div
+                  style={{
+                    width: '44px',
+                    height: '44px',
+                    borderRadius: '12px',
+                    background: 'rgba(56, 189, 248, 0.2)',
+                    border: '1px solid rgba(56, 189, 248, 0.4)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#38BDF8',
+                    flexShrink: 0,
+                  }}
+                >
+                  <Wrench size={22} />
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <h4 style={{ margin: 0, fontSize: '1.02rem', color: '#FFFFFF', fontWeight: 700 }}>
+                      Vehicle Diagnostic Report Ready
+                    </h4>
+                    <span
+                      style={{
+                        fontSize: '0.72rem',
+                        fontWeight: 800,
+                        padding: '2px 8px',
+                        borderRadius: 'var(--radius-full)',
+                        background:
+                          currentSession.diagnosis.severity === 'CRITICAL'
+                            ? 'rgba(239, 68, 68, 0.2)'
+                            : currentSession.diagnosis.severity === 'HIGH'
+                            ? 'rgba(245, 158, 11, 0.2)'
+                            : currentSession.diagnosis.severity === 'MEDIUM'
+                            ? 'rgba(56, 189, 248, 0.2)'
+                            : 'rgba(16, 185, 129, 0.2)',
+                        color:
+                          currentSession.diagnosis.severity === 'CRITICAL'
+                            ? '#EF4444'
+                            : currentSession.diagnosis.severity === 'HIGH'
+                            ? '#F59E0B'
+                            : currentSession.diagnosis.severity === 'MEDIUM'
+                            ? '#38BDF8'
+                            : '#10B981',
+                        border: '1px solid currentColor',
+                      }}
+                    >
+                      {currentSession.diagnosis.severity} SEVERITY
+                    </span>
+                  </div>
+                  <p style={{ margin: '4px 0 0', fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
+                    {currentSession.diagnosis.recommended_service} • Tap arrow to view full cause breakdown & repair options
+                  </p>
+                </div>
+              </div>
+
+              <Link
+                href={`/diagnosis?session_id=${currentSession.id}`}
+                className="btn-primary"
+                style={{
+                  padding: '11px 22px',
+                  fontSize: '0.9rem',
+                  textDecoration: 'none',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  fontWeight: 700,
+                  boxShadow: '0 0 18px rgba(56, 189, 248, 0.35)',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                <span>View Report & Issues</span>
+                <ArrowRight size={18} />
+              </Link>
+            </div>
           )}
 
           {/* Typing Indicator */}
