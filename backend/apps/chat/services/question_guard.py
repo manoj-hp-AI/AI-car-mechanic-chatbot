@@ -27,6 +27,12 @@ AUTOMOTIVE_HINTS = [
     "control arm", "fluid", "drive", "speed", "vibrat", "hum", "whistle", "smoke",
     "hiss", "shudder", "shift", "turn", "bump", "clunk", "rattle", "grind", "knock",
     "clicking", "stall", "slip", "accel", "idle", "hood", "exhaust", "symptom",
+    # Bodywork, Exterior, Lighting, Interior & Damage
+    "bumper", "fender", "scratch", "scratches", "dent", "dents", "paint", "paintwork",
+    "clear coat", "bodywork", "panel", "quarter panel", "scuff", "scrape", "trunk",
+    "boot", "windshield", "windscreen", "window", "door", "mirror", "grille", "spoiler",
+    "rust", "headlight", "taillight", "blinker", "seat", "seatbelt", "airbag",
+    "damage", "collision", "crack", "clip", "cosmetic",
 ]
 
 

@@ -74,6 +74,27 @@ COMPONENT_KEYWORDS = {
         "engine knocking", "engine rattle", "engine ticking", "loud engine",
         "motor", "crankshaft", "camshaft", "spark plug", "spark plugs", "turbo",
     ],
+    "BODYWORK": [
+        "bumper", "bumpers", "front bumper", "rear bumper", "fender", "fenders",
+        "scratch", "scratches", "scratched", "dent", "dents", "dented", "ding", "dings",
+        "paint", "paintwork", "clear coat", "primer", "bodywork", "hood", "bonnet",
+        "trunk", "boot", "tailgate", "windshield", "windscreen", "quarter panel",
+        "rocker panel", "side mirror", "wing mirror", "door panel", "grille", "grill",
+        "spoiler", "collision", "scrape", "scrapes", "scuffed", "scuff", "scuffs",
+        "rust", "chipped paint", "cracked bumper", "panel gap", "body shop",
+        "detailing", "car glass", "paint chip",
+    ],
+    "LIGHTING": [
+        "headlight", "headlights", "headlamp", "taillight", "taillights", "tail lamp",
+        "brake light", "reverse light", "turn signal", "blinker", "blinkers", "indicator",
+        "fog light", "hazard light", "drl", "daytime running", "high beam", "low beam",
+        "bulb", "bulbs", "headlight out",
+    ],
+    "INTERIOR": [
+        "seat", "seats", "seatbelt", "seat belt", "airbag", "airbags", "power window",
+        "window switch", "window regulator", "dashboard", "horn", "door lock",
+        "central locking", "sunroof", "glove box", "upholstery",
+    ],
 }
 
 COMPONENT_QUESTIONS = {
@@ -211,6 +232,48 @@ COMPONENT_QUESTIONS = {
             "options": ["Strong gas smell near engine", "Gas smell near rear / gas cap", "Smell inside cabin", "No fuel smell noticed"],
         },
     ],
+    "BODYWORK": [
+        {
+            "key": "body_damage_type",
+            "question": "What type of damage does the bumper or body panel have?",
+            "type": "choice",
+            "options": ["Surface clear-coat scratches / scuffs", "Deep scratch to bare metal / primer", "Dented metal / bent panel", "Cracked or torn plastic bumper cover"],
+        },
+        {
+            "key": "body_sensor_clips",
+            "question": "Are any parking sensors, cameras, or bumper mounting clips loose or damaged?",
+            "type": "choice",
+            "options": ["Bumper hanging / clips broken", "Parking sensor / ADAS alert on dash", "Sensors and clips intact", "Not sure / not inspected"],
+        },
+        {
+            "key": "body_functional_impact",
+            "question": "Is there any difficulty opening the hood, trunk, or doors?",
+            "type": "choice",
+            "options": ["Cosmetic only (doors & hood open fine)", "Hood / trunk / door rubs or sticks", "Underlying radiator support or frame bent", "Light paint scuff only"],
+        },
+    ],
+    "LIGHTING": [
+        {
+            "key": "light_affected",
+            "question": "Which lighting component is having an issue?",
+            "type": "choice",
+            "options": ["Headlights (low or high beam)", "Taillights or brake lights", "Turn signals / blinkers", "Fog lights or interior lights"],
+        },
+        {
+            "key": "light_behavior",
+            "question": "What is the lighting symptom?",
+            "type": "choice",
+            "options": ["Single bulb completely dark", "Both lights out simultaneously (fuse/relay)", "Flickering or dim output", "Rapid hyper-flashing blinker"],
+        },
+    ],
+    "INTERIOR": [
+        {
+            "key": "interior_component",
+            "question": "Which interior or safety component needs attention?",
+            "type": "choice",
+            "options": ["Power window won't roll up/down", "Airbag warning light on dashboard", "Seat adjustment or seatbelt latch", "Door lock or horn not working"],
+        },
+    ],
 }
 
 COMPONENT_SERVICES = {
@@ -225,6 +288,9 @@ COMPONENT_SERVICES = {
     "BRAKES": "Brake System Inspection & Service",
     "AC": "AC System Diagnostic & Recharge",
     "ENGINE": "Engine Diagnostic Inspection",
+    "BODYWORK": "Auto Body, Collision Repair & Paint Restoration",
+    "LIGHTING": "Automotive Lighting & Electrical Repair",
+    "INTERIOR": "Interior Cabin & Safety System Service",
     "GENERAL": "General Multi-Point Diagnostic Inspection",
 }
 
@@ -402,6 +468,78 @@ def get_component_diagnosis(component: str, symptoms: dict, free_text: str):
         causes.append({"cause": "Dirty or leaking fuel injector", "confidence": 65})
         causes.append({"cause": "Faulty mass airflow (MAF) or fuel pressure regulator", "confidence": 60})
         severity = Severity.HIGH
+
+    elif component == "BODYWORK":
+        dtype = symptoms.get("body_damage_type", "")
+        clips = symptoms.get("body_sensor_clips", "")
+        impact = symptoms.get("body_functional_impact", "")
+
+        if "Surface" in dtype or "scuff" in dtype or "scratch" in free_text.lower():
+            causes.append({"cause": "Surface clear-coat abrasion treatable with compounding, wet sanding & buffing", "confidence": 85})
+            causes.append({"cause": "Clear-coat paint blending and protective sealant touch-up", "confidence": 75})
+            severity = Severity.LOW
+
+        if "Deep scratch" in dtype or "metal" in dtype or "primer" in dtype:
+            causes.append({"cause": "Deep paint gouge penetrating basecoat down to bare metal with active corrosion risk", "confidence": 85})
+            causes.append({"cause": "Panel spot repair: sand, etch primer, OEM color match & 2-stage clear coat", "confidence": 75})
+            severity = Severity.MEDIUM
+
+        if "Dented" in dtype or "bent" in dtype or "dent" in free_text.lower():
+            causes.append({"cause": "Body panel deformation requiring paintless dent repair (PDR) or stud extraction", "confidence": 85})
+            causes.append({"cause": "Panel body line realignment and surface leveling", "confidence": 70})
+            severity = Severity.MEDIUM
+
+        if "Cracked" in dtype or "clips broken" in clips or "bumper" in free_text.lower():
+            causes.append({"cause": "Cracked thermoplastic bumper cover requiring plastic hot-staple welding or cover replacement", "confidence": 85})
+            causes.append({"cause": "Broken bumper cover mounting tabs and retainer side brackets", "confidence": 80})
+            severity = Severity.MEDIUM
+
+        if "sensor" in clips or "ADAS" in clips:
+            causes.append({"cause": "Ultrasonic parking assist sensor or front radar sensor misalignment / bracket damage", "confidence": 85})
+            causes.append({"cause": "ADAS bumper sensor calibration and wiring harness check", "confidence": 75})
+            severity = Severity.HIGH
+
+        if "rubs" in impact or "frame bent" in impact:
+            causes.append({"cause": "Radiator core support or underlying bumper reinforcement bar deformation", "confidence": 85})
+            causes.append({"cause": "Structural collision pull and body gap realignment", "confidence": 75})
+            severity = Severity.HIGH
+
+        if not causes:
+            causes.append({"cause": "Exterior bumper and body panel impact damage requiring body shop repair", "confidence": 75})
+            causes.append({"cause": "Cosmetic clear-coat and paint touch-up service", "confidence": 65})
+            severity = Severity.MEDIUM
+
+    elif component == "LIGHTING":
+        behavior = symptoms.get("light_behavior", "")
+        if "Single bulb" in behavior:
+            causes.append({"cause": "Burned out halogen or LED lamp filament / bulb", "confidence": 90})
+            causes.append({"cause": "Corroded bulb socket electrical contacts", "confidence": 65})
+            severity = Severity.LOW
+        elif "Both lights" in behavior:
+            causes.append({"cause": "Blown lighting circuit fuse or faulty lighting relay", "confidence": 85})
+            causes.append({"cause": "Headlight switch or multi-function stalk failure", "confidence": 70})
+            severity = Severity.MEDIUM
+        elif "flashing" in behavior:
+            causes.append({"cause": "Burned out turn signal bulb causing reduced circuit resistance (hyper-flashing)", "confidence": 90})
+            causes.append({"cause": "Flasher relay failure or LED resistor mismatch", "confidence": 70})
+            severity = Severity.LOW
+        else:
+            causes.append({"cause": "Lighting circuit fault or burned out lamp unit", "confidence": 75})
+            severity = Severity.LOW
+
+    elif component == "INTERIOR":
+        comp = symptoms.get("interior_component", "")
+        if "Power window" in comp:
+            causes.append({"cause": "Failing power window regulator motor or broken cable guide", "confidence": 85})
+            causes.append({"cause": "Faulty master window switch assembly", "confidence": 70})
+            severity = Severity.LOW
+        elif "Airbag" in comp:
+            causes.append({"cause": "Supplemental Restraint System (SRS) clock spring or sensor fault", "confidence": 85})
+            causes.append({"cause": "Seatbelt buckle pretensioner wiring resistance fault", "confidence": 75})
+            severity = Severity.HIGH
+        else:
+            causes.append({"cause": "Cabin electrical accessory switch or actuator failure", "confidence": 70})
+            severity = Severity.LOW
 
     else:
         causes.append({"cause": f"{component.replace('_', ' ').title()} automotive fault requiring certified mechanic inspection", "confidence": 60})

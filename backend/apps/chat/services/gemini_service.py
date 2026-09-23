@@ -56,19 +56,22 @@ def classify_scope(text: str) -> bool:
     """Single-call, minimal-token scope check for ambiguous short messages."""
     model = _get_model()
     if model is None:
-        return False  # fail closed: without AI available, ambiguous short text is rejected
+        from apps.chat.services import scope_guard
+        return scope_guard.looks_automotive(text)
     try:
         prompt = (
             "Answer with only one word, YES or NO. Is the following user message "
-            "about a car / vehicle / automotive or mechanical problem?\n\n"
+            "about a car, vehicle, automotive part, bodywork, bumper, dent, scratch, "
+            "mechanical, electrical, or automotive maintenance problem?\n\n"
             f"Message: {text[:300]}"
         )
         response = model.generate_content(prompt)
         answer = (response.text or "").strip().upper()
         return answer.startswith("Y")
     except Exception:
-        logger.exception("Gemini classify_scope call failed.")
-        return False
+        logger.exception("Gemini classify_scope call failed; checking local automotive dictionary fallback.")
+        from apps.chat.services import scope_guard
+        return scope_guard.looks_automotive(text)
 
 
 def analyze_media(file_path: str, media_type: str) -> str:

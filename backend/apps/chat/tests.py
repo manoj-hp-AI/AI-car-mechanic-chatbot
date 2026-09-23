@@ -196,3 +196,75 @@ class CarPartDiagnosisTests(APITestCase):
         self.assertIn("Transmission", diag["recommended_service"])
         self.assertNotIn("Engine Diagnostic Inspection", diag["recommended_service"])
 
+    def test_bumper_damage_and_scratches_accepted_and_diagnosed_as_bodywork(self):
+        """User's exact query must be in-scope and diagnosed as bodywork, not rejected or engine."""
+        # 1. Scope Guard unit check
+        in_scope, category, needs_ai = scope_guard.classify("bumper damage and scratches what to do")
+        self.assertTrue(in_scope)
+        self.assertEqual(category, ChatSession.Category.OTHER)
+        self.assertFalse(needs_ai)
+
+        # 2. API chat submission
+        r = self.client.post(
+            "/api/chat/",
+            {"message": "bumper damage and scratches what to do"},
+            **self.auth_header,
+        )
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        session_id = data["id"]
+        # Must NEVER be REJECTED
+        self.assertNotEqual(data["status"], "REJECTED")
+        self.assertEqual(data["status"], "COLLECTING")
+
+        # 3. Answer follow-up questions
+        while data["status"] == "COLLECTING":
+            r = self.client.post(
+                "/api/chat/",
+                {"session_id": session_id, "message": "Surface clear-coat scratches / scuffs"},
+                **self.auth_header,
+            )
+            data = r.json()
+
+        self.assertEqual(data["status"], "READY")
+
+        # 4. Generate diagnosis
+        r = self.client.post("/api/diagnosis/", {"session_id": session_id}, **self.auth_header)
+        self.assertEqual(r.status_code, 201)
+        diag = r.json()
+
+        # Must recommend Auto Body / Paint Restoration, NOT Engine
+        self.assertIn("Body", diag["recommended_service"])
+        self.assertNotIn("Engine Diagnostic Inspection", diag["recommended_service"])
+        top_cause = diag["possible_causes"][0]["cause"].lower()
+        self.assertTrue(any(w in top_cause for w in ["scratch", "buffing", "bumper", "clear-coat", "abrasion"]))
+        self.assertNotIn("engine", top_cause)
+
+    def test_headlight_bulb_diagnosed_as_lighting(self):
+        in_scope, category, needs_ai = scope_guard.classify("my front headlight bulb is not turning on")
+        self.assertTrue(in_scope)
+        self.assertEqual(category, ChatSession.Category.OTHER)
+
+        r = self.client.post(
+            "/api/chat/",
+            {"message": "my front headlight bulb is not turning on"},
+            **self.auth_header,
+        )
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        session_id = data["id"]
+        self.assertEqual(data["status"], "COLLECTING")
+
+        while data["status"] == "COLLECTING":
+            r = self.client.post(
+                "/api/chat/",
+                {"session_id": session_id, "message": "Single bulb completely dark"},
+                **self.auth_header,
+            )
+            data = r.json()
+
+        r = self.client.post("/api/diagnosis/", {"session_id": session_id}, **self.auth_header)
+        self.assertEqual(r.status_code, 201)
+        diag = r.json()
+        self.assertIn("Lighting", diag["recommended_service"])
+

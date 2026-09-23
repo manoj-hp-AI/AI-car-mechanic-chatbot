@@ -42,23 +42,116 @@ CATEGORY_KEYWORDS = {
 
 # Non-engine components that must never be hijacked into ENGINE_NOISE
 NON_ENGINE_PARTS = [
-    "gearbox", "transmission", "clutch", "suspension", "strut", "shock",
-    "exhaust", "muffler", "steering", "alternator", "turbo", "axle",
-    "differential", "wheel bearing", "catalytic", "fuel pump", "drivetrain",
-    "tie rod", "ball joint", "control arm", "bushing", "sway bar",
+    # Drivetrain & Transmission
+    "gearbox", "transmission", "clutch", "drivetrain", "axle", "differential",
+    "driveshaft", "cv joint", "cv axle", "propeller shaft", "transaxle",
+    # Suspension & Steering
+    "suspension", "strut", "struts", "shock", "shocks", "shock absorber",
+    "spring", "coil spring", "sway bar", "sway link", "control arm",
+    "ball joint", "bushing", "bushings", "steering", "tie rod", "rack and pinion",
+    # Exhaust & Wheels
+    "exhaust", "muffler", "catalytic", "wheel bearing", "wheel hub", "tire", "tyre", "rim",
+    # Bodywork, Exterior & Collision
+    "bumper", "fender", "scratch", "scratches", "dent", "dents", "ding",
+    "paint", "paintwork", "hood", "bonnet", "trunk", "boot", "tailgate",
+    "windshield", "windscreen", "window", "door", "mirror", "side mirror",
+    "grille", "spoiler", "bodywork", "quarter panel", "rocker panel", "scuff", "scrape",
+    # Electrical, Lighting & Interior
+    "alternator", "turbo", "fuel pump", "battery", "headlight", "taillight",
+    "seat", "seatbelt", "airbag", "horn", "power window", "fuse",
 ]
 
-# Broad list used only to decide "is this automotive at all" for free-form text
-# that doesn't match a specific category above.
+# Comprehensive list of automotive components, systems, bodywork, interior,
+# and vehicle symptoms to ensure no legitimate car problem is ever falsely rejected.
 GENERIC_AUTOMOTIVE_KEYWORDS = [
-    "car", "vehicle", "engine", "transmission", "tyre", "tire", "battery",
-    "oil", "exhaust", "clutch", "gear", "gearbox", "suspension", "steering", "dashboard",
-    "fuel", "diesel", "petrol", "spark plug", "alternator", "wheel", "mechanic",
-    "auto", "motor", "bike", "truck", "van", "headlight", "wiper", "check engine",
-    "strut", "shock", "bushing", "axle", "differential", "muffler", "catalytic",
-    "radiator", "coolant", "turbo", "drivetrain", "brake", "brakes", "caliper",
-    "rotor", "pedal", "shifting", "pothole", "clunk", "rattle", "grind", "whine",
-    "squeal", "symptom", "leak", "smoke", "overheat", "starting", "rattling",
+    # Vehicles & General
+    "car", "cars", "vehicle", "vehicles", "auto", "automobile", "truck", "suv", "van",
+    "motorcycle", "bike", "mechanic", "garage", "workshop", "dealership", "service center",
+    # Bodywork, Panels & Exterior
+    "bumper", "bumpers", "fender", "fenders", "hood", "bonnet", "trunk", "boot",
+    "tailgate", "windshield", "windscreen", "window", "windows", "door", "doors",
+    "side mirror", "wing mirror", "rearview mirror", "rear view", "mirror", "mirrors",
+    "grille", "grill", "spoiler", "bodywork", "body panel", "quarter panel", "rocker panel",
+    "roof", "sunroof", "moonroof", "convertible", "wiper", "wipers", "wiper blade",
+    "mudflap", "splash guard", "skid plate", "chassis", "frame", "subframe",
+    # Paint, Collision & Cosmetic Damage
+    "scratch", "scratches", "scratched", "dent", "dents", "dented", "ding", "dings",
+    "paint", "paintwork", "clear coat", "primer", "scuff", "scuffs", "scuffed",
+    "scrape", "scrapes", "scraped", "rust", "rusted", "corrosion", "chipped",
+    "paint chip", "stone chip", "chipped paint", "collision", "crash",
+    "fender bender", "accident", "body shop", "detailing", "polish", "buffing",
+    "dent repair", "panel gap", "cracked bumper",
+    # Lighting & Visibility
+    "headlight", "headlights", "headlamp", "taillight", "taillights", "tail lamp",
+    "brake light", "reverse light", "turn signal", "blinker", "blinkers", "indicator",
+    "fog light", "fog lamp", "hazard light", "drl", "daytime running", "high beam",
+    "low beam", "bulb", "bulbs", "led light",
+    # Interior & Safety
+    "seat", "seats", "car seat", "seatbelt", "seat belt", "seatbelts", "airbag", "airbags",
+    "steering wheel", "dashboard", "dash", "instrument cluster", "speedometer", "tachometer",
+    "glove box", "console", "center console", "upholstery", "leather seat", "interior",
+    "pedal", "pedals", "accelerator", "gas pedal", "brake pedal", "clutch pedal",
+    "horn", "sun visor", "carpet", "floor mat", "trunk liner", "door handle",
+    "power window", "window regulator", "window switch", "central locking",
+    # Engine & Valvetrain
+    "engine", "motor", "cylinder", "cylinder head", "engine block", "piston", "pistons",
+    "piston ring", "valve", "valves", "valvetrain", "camshaft", "crankshaft",
+    "timing belt", "timing chain", "tensioner", "serpentine belt", "drive belt", "alternator belt",
+    "spark plug", "spark plugs", "glow plug", "ignition coil", "distributor",
+    "manifold", "intake manifold", "exhaust manifold", "gasket", "gaskets", "head gasket",
+    "valve cover", "valve cover gasket", "oil pan", "oil pump", "dipstick",
+    "turbo", "turbocharger", "supercharger", "intercooler", "wastegate", "blow off valve",
+    # Fuel & Induction
+    "fuel", "fuel pump", "fuel injector", "fuel injectors", "injectors", "fuel filter",
+    "fuel line", "fuel tank", "gas tank", "petrol", "diesel", "gasoline", "throttle",
+    "throttle body", "carburetor", "mass air flow", "maf", "map sensor", "air filter",
+    # Cooling & Heating
+    "radiator", "coolant", "antifreeze", "thermostat", "water pump", "cooling fan",
+    "radiator hose", "heater core", "heater", "expansion tank", "coolant leak", "overheat", "overheating",
+    # Air Conditioning
+    "ac", "air condition", "air conditioning", "aircon", "a/c", "cabin air", "cabin filter",
+    "compressor", "condenser", "evaporator", "expansion valve", "refrigerant", "freon",
+    "blower motor", "defroster", "defogger", "climate control",
+    # Transmission & Drivetrain
+    "transmission", "gearbox", "gear", "gears", "shifting", "shifter", "gear shift",
+    "clutch", "clutch pedal", "clutch plate", "flywheel", "torque converter",
+    "cv axle", "cv joint", "axle", "axles", "driveshaft", "prop shaft", "differential",
+    "transfer case", "transaxle", "automatic transmission", "manual transmission", "cvt",
+    # Suspension & Steering
+    "suspension", "shock", "shocks", "shock absorber", "strut", "struts", "spring", "springs",
+    "coil spring", "leaf spring", "air suspension", "sway bar", "sway link", "stabilizer bar",
+    "control arm", "wishbone", "ball joint", "ball joints", "tie rod", "tie rods", "tie rod end",
+    "bushing", "bushings", "steering", "steering rack", "rack and pinion", "power steering",
+    "steering pump", "steering column", "wheel alignment", "camber", "caster", "toe",
+    # Brakes & Wheels
+    "brake", "brakes", "braking", "brake pad", "brake pads", "rotor", "rotors",
+    "brake disc", "brake drum", "caliper", "calipers", "brake fluid", "master cylinder",
+    "brake booster", "brake line", "abs", "abs light", "abs sensor", "handbrake",
+    "emergency brake", "parking brake", "wheel", "wheels", "wheel bearing", "wheel hub",
+    "rim", "rims", "alloy", "alloy wheel", "tire", "tires", "tyre", "tyres", "tread",
+    "flat tire", "puncture", "blowout", "tpms", "lug nut", "wheel stud", "wheel balance",
+    # Exhaust & Emissions
+    "exhaust", "muffler", "catalytic", "catalytic converter", "cat converter",
+    "tailpipe", "exhaust pipe", "resonator", "dpf", "oxygen sensor", "o2 sensor",
+    "emissions", "smog", "heat shield",
+    # Electrical & Sensors
+    "battery", "alternator", "starter", "starter motor", "fuse", "fuses", "fuse box",
+    "relay", "relays", "wire", "wires", "wiring", "wiring harness", "ground wire",
+    "ecu", "ecm", "pcm", "bcm", "sensor", "sensors", "check engine", "check engine light",
+    "cel", "obd", "obd2", "scanner", "trouble code", "fault code", "key fob",
+    "immobilizer", "car alarm", "infotainment", "car radio", "car stereo",
+    "backup camera", "reverse camera", "parking sensor", "cruise control",
+    # Fluids & Consumables
+    "oil", "engine oil", "motor oil", "oil change", "oil leak", "oil filter",
+    "trans fluid", "transmission fluid", "brake fluid", "power steering fluid",
+    "washer fluid", "fluid leak", "grease", "lubricant", "adblue", "def",
+    # Symptoms & Diagnostics
+    "damage", "damaged", "leak", "leaking", "smoke", "smoking", "sputter", "sputtering",
+    "misfire", "misfiring", "stalling", "stall", "stalled", "no start", "wont start",
+    "dead battery", "rough idle", "hesitation", "knocking", "knock", "rattle", "rattling",
+    "clunk", "clunking", "squeak", "squeaking", "squeal", "squealing", "grind", "grinding",
+    "humming", "vibration", "vibrating", "vibrates", "wobble", "shudder", "slipping",
+    "pothole", "mileage", "odometer", "maintenance", "tune up", "inspection", "breakdown",
 ]
 
 STARTER_LABELS = {
@@ -88,9 +181,15 @@ def match_category(text: str):
     return max(scores, key=scores.get)
 
 
+# Precompiled regex using word boundaries to ensure whole-word / exact phrase matching
+AUTOMOTIVE_REGEX = re.compile(
+    r"\b(" + "|".join(re.escape(kw) for kw in sorted(GENERIC_AUTOMOTIVE_KEYWORDS, key=len, reverse=True)) + r")\b",
+    re.IGNORECASE,
+)
+
+
 def looks_automotive(text: str) -> bool:
-    lowered = text.lower()
-    if any(kw in lowered for kw in GENERIC_AUTOMOTIVE_KEYWORDS):
+    if AUTOMOTIVE_REGEX.search(text):
         return True
     # also true if it matches any specific category keyword set
     return match_category(text) is not None
